@@ -1,17 +1,22 @@
-// Small in-memory per-IP rate limiter — no extra dependency needed for a
+// Small in-memory rate limiter — no extra dependency needed for a
 // single-instance personal deployment. Not suitable for multi-instance scaling.
+// Keyed by a caller-supplied function rather than IP alone: behind Railway's
+// proxy every request can appear to share one IP, so IP-only keys risk one
+// user's requests exhausting another user's budget. Defaulting to a
+// username-aware key keeps unrelated accounts from blocking each other.
 
-const buckets = new Map(); // ip -> { count, resetAt }
+const buckets = new Map(); // key -> { count, resetAt }
 
-function rateLimit({ windowMs, max }) {
+function rateLimit({ windowMs, max, keyFn }) {
   return (req, res, next) => {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const key = keyFn ? keyFn(req, ip) : ip;
     const now = Date.now();
-    let bucket = buckets.get(ip);
+    let bucket = buckets.get(key);
 
     if (!bucket || now > bucket.resetAt) {
       bucket = { count: 0, resetAt: now + windowMs };
-      buckets.set(ip, bucket);
+      buckets.set(key, bucket);
     }
 
     bucket.count++;
@@ -28,8 +33,8 @@ function rateLimit({ windowMs, max }) {
 // Periodically clear stale buckets so the map doesn't grow forever.
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, bucket] of buckets) {
-    if (now > bucket.resetAt) buckets.delete(ip);
+  for (const [key, bucket] of buckets) {
+    if (now > bucket.resetAt) buckets.delete(key);
   }
 }, 10 * 60 * 1000).unref();
 

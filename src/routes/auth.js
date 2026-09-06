@@ -2,11 +2,21 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
+const rateLimit = require('../middleware/rateLimit');
 
 const router = express.Router();
 
+// Keyed by username (not just IP) — behind Railway's proxy, requests can
+// appear to share one IP, so an IP-only key would let one account's failed
+// attempts lock out a different account. 15 attempts / 15 min per username.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  keyFn: (req, ip) => ip + ':' + String((req.body && req.body.username) || '').toLowerCase(),
+});
+
 // POST /api/auth/signup
-router.post('/signup', async (req, res) => {
+router.post('/signup', authLimiter, async (req, res) => {
   try {
     const { username, password, email } = req.body;
 
@@ -49,7 +59,7 @@ router.post('/signup', async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
