@@ -2,8 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
+const rateLimit = require('./middleware/rateLimit');
 
 const app = express();
+app.set('trust proxy', true); // Railway sits behind a proxy; needed for accurate req.ip
 
 // CORS — allow GitHub Pages frontend
 const allowedOrigins = [
@@ -27,7 +29,7 @@ app.use(express.json({ limit: '10mb' }));
 app.get('/health', (req, res) => res.json({ status: 'ok', app: 'arcave' }));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
+app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }), require('./routes/auth'));
 app.use('/api/books', require('./routes/books'));
 app.use('/api/journal', require('./routes/journal'));
 

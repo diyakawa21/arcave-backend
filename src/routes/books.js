@@ -5,6 +5,8 @@ const auth = require('../middleware');
 const router = express.Router();
 router.use(auth);
 
+const VALID_STATUSES = ['unread', 'reading', 'read'];
+
 // GET /api/books
 router.get('/', async (req, res) => {
   try {
@@ -29,10 +31,13 @@ router.post('/', async (req, res) => {
             pages, year, notes_during, notes_after, gr_review, cover, genre, read_count } = req.body;
 
     if (!title) return res.status(400).json({ error: 'Title is required' });
+    if (status !== undefined && !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
 
     const dup = await pool.query(
-      'SELECT id FROM books WHERE user_id = $1 AND LOWER(title) = LOWER($2)',
-      [req.userId, title]
+      'SELECT id FROM books WHERE user_id = $1 AND LOWER(title) = LOWER($2) AND LOWER(author) = LOWER($3)',
+      [req.userId, title, author || '']
     );
     if (dup.rows.length > 0) {
       return res.status(409).json({ error: 'Book already in your library', existingId: dup.rows[0].id });
@@ -60,6 +65,9 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const bookId = parseInt(req.params.id);
+    if (req.body.status !== undefined && !VALID_STATUSES.includes(req.body.status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
     const fields = ['title','author','status','owned','rating','start_date','finish_date',
                     'pages','year','notes_during','notes_after','gr_review','cover','genre','read_count'];
 
@@ -119,8 +127,8 @@ router.post('/import', async (req, res) => {
     for (const b of books) {
       if (!b.title) continue;
       const dup = await pool.query(
-        'SELECT id FROM books WHERE user_id = $1 AND LOWER(title) = LOWER($2)',
-        [req.userId, b.title]
+        'SELECT id FROM books WHERE user_id = $1 AND LOWER(title) = LOWER($2) AND LOWER(author) = LOWER($3)',
+        [req.userId, b.title, b.author || '']
       );
       if (dup.rows.length > 0) { skipped++; continue; }
 

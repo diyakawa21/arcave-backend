@@ -85,7 +85,32 @@ router.post('/login', async (req, res) => {
 
 // GET /api/auth/me
 router.get('/me', require('../middleware'), async (req, res) => {
-  res.json({ userId: req.userId, username: req.username });
+  try {
+    const result = await pool.query('SELECT reading_goal FROM users WHERE id = $1', [req.userId]);
+    const reading_goal = result.rows[0] ? result.rows[0].reading_goal : 0;
+    res.json({ userId: req.userId, username: req.username, reading_goal });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PATCH /api/auth/goal — set annual reading goal
+router.patch('/goal', require('../middleware'), async (req, res) => {
+  try {
+    const goal = parseInt(req.body.reading_goal, 10);
+    if (!Number.isInteger(goal) || goal < 0 || goal > 10000) {
+      return res.status(400).json({ error: 'reading_goal must be a non-negative integer' });
+    }
+    const result = await pool.query(
+      'UPDATE users SET reading_goal = $1 WHERE id = $2 RETURNING reading_goal',
+      [goal, req.userId]
+    );
+    res.json({ reading_goal: result.rows[0].reading_goal });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 module.exports = router;
