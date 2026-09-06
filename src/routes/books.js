@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, title, author, status, owned, rating, start_date, finish_date,
-              pages, year, notes_during, notes_after, gr_review, cover, genre,
+              pages, year, notes_during, notes_after, gr_review, cover, genre, location,
               read_count, created_at, updated_at
        FROM books WHERE user_id = $1 ORDER BY author ASC, title ASC`,
       [req.userId]
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { title, author, status, owned, rating, start_date, finish_date,
-            pages, year, notes_during, notes_after, gr_review, cover, genre, read_count } = req.body;
+            pages, year, notes_during, notes_after, gr_review, cover, genre, location, read_count } = req.body;
 
     if (!title) return res.status(400).json({ error: 'Title is required' });
     if (status !== undefined && !VALID_STATUSES.includes(status)) {
@@ -45,13 +45,13 @@ router.post('/', async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO books (user_id, title, author, status, owned, rating, start_date, finish_date,
-        pages, year, notes_during, notes_after, gr_review, cover, genre, read_count)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+        pages, year, notes_during, notes_after, gr_review, cover, genre, location, read_count)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        RETURNING *`,
       [req.userId, title, author||'', status||'unread', owned||false, rating||0,
        start_date||'', finish_date||'', pages||'', year||'',
        notes_during||'', notes_after||'', gr_review||'',
-       cover||'', genre||'', read_count||0]
+       cover||'', genre||'', location||'', read_count||0]
     );
 
     res.status(201).json(result.rows[0]);
@@ -69,7 +69,7 @@ router.patch('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid status' });
     }
     const fields = ['title','author','status','owned','rating','start_date','finish_date',
-                    'pages','year','notes_during','notes_after','gr_review','cover','genre','read_count'];
+                    'pages','year','notes_during','notes_after','gr_review','cover','genre','location','read_count'];
 
     const updates = [];
     const values = [];
@@ -142,13 +142,13 @@ router.post('/import', async (req, res) => {
 
       await pool.query(
         `INSERT INTO books (user_id, title, author, status, owned, rating, start_date, finish_date,
-          pages, year, notes_during, notes_after, gr_review, cover, genre, read_count)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+          pages, year, notes_during, notes_after, gr_review, cover, genre, location, read_count)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
         [req.userId, b.title, b.author||'', status, owned, b.rating||0,
          b.start||b.start_date||'', b.finish||b.finish_date||'',
          b.pages||'', b.year||'', b.notesDuring||b.notes_during||'',
          b.notesAfter||b.notes_after||'', b.grReview||b.gr_review||'',
-         b.cover||'', b.genre||'', b.readCount||b.read_count||0]
+         b.cover||'', b.genre||'', b.location||'', b.readCount||b.read_count||0]
       );
       imported++;
     }

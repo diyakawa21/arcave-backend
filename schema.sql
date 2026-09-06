@@ -52,3 +52,6 @@ ALTER TABLE books ADD COLUMN IF NOT EXISTS owned BOOLEAN DEFAULT false;
 
 -- Add reading goal (books per year) to users
 ALTER TABLE users ADD COLUMN IF NOT EXISTS reading_goal INTEGER DEFAULT 0;
+
+-- Add physical location (e.g. "My Room", "Brother's Room", "Cafe")
+ALTER TABLE books ADD COLUMN IF NOT EXISTS location TEXT DEFAULT '';
